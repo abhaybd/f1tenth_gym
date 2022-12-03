@@ -156,19 +156,24 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
         # system dynamics
         x_ks = x[0:5]
         f_ks = vehicle_dynamics_ks(x_ks, u, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max, sv_min, sv_max, v_switch, a_max, v_min, v_max)
-        f = np.hstack((f_ks, np.array([u[1]/lwb*np.tan(x[2])+x[3]/(lwb*np.cos(x[2])**2)*u[0],
-        0])))
+        L = lf + lr
+        z = x[2]
+        v = x[3]
+        zp, a = u
+        theta_accel = (L**2*a*np.tan(z) + L**2*v*zp/np.cos(z)**2 + lr**2*a*np.tan(z)**3) / (L**3*((L**2+lr**2+np.tan(z)**2)/L**2)**1.5)
+        f = np.hstack((f_ks, np.array([theta_accel, 0.])))
 
     else:
         # system dynamics
+        x_vel = x[3] * np.cos(x[6])
+        y_vel = x[3] * np.sin(x[6])
+        theta_accel = -((C_Sf*lf - C_Sr*lr) / (x_vel * I))*y_vel - ((C_Sf*lf**2 + C_Sr*lr**2) / (x_vel * I)) * x[5] + ((C_Sf*lf)/I)*x[2]
         f = np.array([x[3]*np.cos(x[6] + x[4]),
             x[3]*np.sin(x[6] + x[4]),
             u[0],
             u[1],
             x[5],
-            -mu*m/(x[3]*I*(lr+lf))*(lf**2*C_Sf*(g*lr-u[1]*h) + lr**2*C_Sr*(g*lf + u[1]*h))*x[5] \
-                +mu*m/(I*(lr+lf))*(lr*C_Sr*(g*lf + u[1]*h) - lf*C_Sf*(g*lr - u[1]*h))*x[6] \
-                +mu*m/(I*(lr+lf))*lf*C_Sf*(g*lr - u[1]*h)*x[2],
+            theta_accel,
             (mu/(x[3]**2*(lr+lf))*(C_Sr*(g*lf + u[1]*h)*lr - C_Sf*(g*lr - u[1]*h)*lf)-1)*x[5] \
                 -mu/(x[3]*(lr+lf))*(C_Sr*(g*lf + u[1]*h) + C_Sf*(g*lr-u[1]*h))*x[6] \
                 +mu/(x[3]*(lr+lf))*(C_Sf*(g*lr-u[1]*h))*x[2]])
